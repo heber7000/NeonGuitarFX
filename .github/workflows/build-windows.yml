@@ -1,0 +1,62 @@
+name: Build Windows VST3
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Setup CMake
+      uses: lukka/get-cmake@latest
+    
+    - name: Clone JUCE
+      run: |
+        cd ..
+        git clone --branch 7.0.9 --depth 1 https://github.com/juce-framework/JUCE.git
+    
+    - name: Initialize NAM submodules
+      run: |
+        cd Libs/NeuralAmpModelerCore
+        git submodule update --init --recursive
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -G "Visual Studio 17 2022" -A x64
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config Release --parallel
+    
+    - name: Upload VST3 artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: NeonGuitarFX-Windows-VST3
+        path: build/NeonGuitarFX_artefacts/Release/VST3/NeonGuitarFX.vst3
+        
+    - name: Create Release Package
+      run: |
+        cd build/NeonGuitarFX_artefacts/Release/VST3
+        Compress-Archive -Path NeonGuitarFX.vst3 -DestinationPath ../../../../NeonGuitarFX-Windows.zip
+    
+    - name: Upload Release Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: NeonGuitarFX-Windows-Release
+        path: NeonGuitarFX-Windows.zip
